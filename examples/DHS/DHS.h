@@ -89,6 +89,8 @@ public:
 
 	void unbalance(ZZX& x, int lvl);
 
+	void coeffReduce(ZZX& out, ZZX in, int lvl);
+
 	Batcher *batcher;
 protected:
 	int B; // bound of distribution to sample polynomials from
@@ -102,7 +104,7 @@ protected:
 	ZZX sample();
 	void findInverse(ZZX& f_inv, ZZX& f, ZZ& q, bool& isfound);
 	int mobuisFunction(int n);
-	void coeffReduce(ZZX& out, ZZX in, int lvl);
+
 	void coeffReduce(ZZX& out, ZZX in, ZZ q);
 	void genPkSk();
 	void genEk();

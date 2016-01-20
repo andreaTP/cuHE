@@ -14,7 +14,7 @@ FOMP	= -fopenmp
 FARCH	= -arch=compute_30
 FCODE	= -code=sm_30
 FPTX	= -code=compute_30
-CXFLAGS	= $(FMACH) $(FOPTM) $(FC++11) $(FOMP)
+CXFLAGS	= $(FMACH) $(FOPTM) $(FC++11)
 CUFLAGS	= $(FARCH) $(FCODE) $(FPTX)
 
 ## Libraries
