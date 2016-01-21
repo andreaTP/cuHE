@@ -22,7 +22,7 @@ LCUDART	= --cudart static
 LMATH	= -lm
 LNTL	= -lntl
 LGMP	= -lgmp
-LOMP	=
+LOMP	= -lomp
 LINKERS	= $(LCUDART) $(LMATH) $(LNTL) $(LGMP) $(LOMP)
 
 # Commands
