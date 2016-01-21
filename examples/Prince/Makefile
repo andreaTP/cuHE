@@ -29,9 +29,9 @@ LINKERS	= $(LCUDART) $(LMATH) $(LNTL) $(LGMP) $(LOMP)
 COMPCC	= $(CC) $(CXFLAGS)
 COMPCX	= $(CX) $(CXFLAGS)
 COMPCU	= $(CU) $(CXFLAGS) $(CUFLAGS)
-LINKCC	= $(CC) $(CXFLAGS) $(LINKERS) -w
-LINKCX	= $(CX) $(CXFLAGS) $(LINKERS) -w
-LINKCU	= $(CU) $(CXFLAGS) $(CUFLAGS) $(LINKERS) -w
+LINKCC	= $(CC) $(CXFLAGS) $(LINKERS) -link -w
+LINKCX	= $(CX) $(CXFLAGS) $(LINKERS) -link -w
+LINKCU	= $(CU) $(CXFLAGS) $(CUFLAGS) $(LINKERS) -link -w
 
 #################################################
 #################################################
