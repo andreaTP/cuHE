@@ -1,6 +1,6 @@
 #include "Prince.h"
 #include "Timer.h"
-#include <omp.h>
+#include <libiomp/omp.h>
 #include "../../cuhe/CuHE.h"
 using namespace cuHE;
 
@@ -74,7 +74,7 @@ void Prince::run() {
 	}
 	cout<<"---------- Precomputation ----------"<<endl;
 	heSetup();
-	cout<<"---------- Set Message ----------"<<endl;
+/*	cout<<"---------- Set Message ----------"<<endl;
 	setMessage(A);
 	cout<<"---------- Set Keys ----------"<<endl;
 	setKeys(B, C);
@@ -93,7 +93,44 @@ void Prince::run() {
 	for (int i=0; i<64; i++)
 		cout<< coeff(res[i], 0);
 	cout<<endl;
-	cout<<"1001111110110101000110010011010111111100001111011111010100100100"<<endl;
+	cout<<"1001111110110101000110010011010111111100001111011111010100100100"<<endl;*/
+	int p = 2;
+	ZZX x[2], y[2];
+	SetSeed(to_ZZ(time(NULL)));
+	for (int k=0; k<2; k++) {
+		for (int i=0; i<cudhs->numSlot(); i++)
+			SetCoeff(x[k], i, RandomBnd(p));
+		cudhs->batcher->encode(y[k], x[k]);
+		cudhs->encrypt(y[k], y[k], 0);
+	}
+
+	CuCtxt* cuy = new CuCtxt[2];
+	CuCtxt cuz;
+	for (int k=0; k<2; k++) {
+		cuy[k].setLevel(0, 0, y[k]);
+		cuy[k].x2n();
+	}
+	cAnd(cuz, cuy[0], cuy[1]);
+	delete [] cuy;	
+	cuz.relin();
+	cuz.modSwitch();
+	cuz.x2z();
+
+
+	ZZX z;
+	cudhs->decrypt(z, cuz.zRep(), 1);
+	cuz.~CuCtxt();
+	cudhs->batcher->decode(z, z);
+
+	ZZX chk;
+	clear(chk);
+	for (int i=0; i<cudhs->numSlot(); i++)
+		SetCoeff(chk, i, coeff(x[0], i)*coeff(x[1], i)%to_ZZ(p));
+	cout<<deg(z)<<" "<<deg(chk)<<" ";
+	if (z == chk)
+		cout<<"true"<<endl;
+	else
+		cout<<"false"<<endl;
 }
 
 void Prince::check(int rd) {

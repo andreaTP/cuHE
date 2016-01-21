@@ -22,16 +22,16 @@ LCUDART	= --cudart static
 LMATH	= -lm
 LNTL	= -lntl
 LGMP	= -lgmp
-LOMP	= -lgomp
+LOMP	=
 LINKERS	= $(LCUDART) $(LMATH) $(LNTL) $(LGMP) $(LOMP)
 
 # Commands
 COMPCC	= $(CC) $(CXFLAGS)
 COMPCX	= $(CX) $(CXFLAGS)
 COMPCU	= $(CU) $(CXFLAGS) $(CUFLAGS)
-LINKCC	= $(CC) $(CXFLAGS) $(LINKERS) -link -w
-LINKCX	= $(CX) $(CXFLAGS) $(LINKERS) -link -w
-LINKCU	= $(CU) $(CXFLAGS) $(CUFLAGS) $(LINKERS) -link -w
+LINKCC	= $(CC) $(CXFLAGS) $(LINKERS) -w
+LINKCX	= $(CX) $(CXFLAGS) $(LINKERS) -w
+LINKCU	= $(CU) $(CXFLAGS) $(CUFLAGS) $(LINKERS) -w
 
 #################################################
 #################################################
