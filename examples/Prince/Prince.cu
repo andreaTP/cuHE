@@ -45,7 +45,7 @@ Prince::~Prince() {
 
 void Prince::heSetup() {
 	multiGPUs(1);
-	cudhs = new CuDHS(circuitDepth, 2, 16, 25, 25, 17);
+	cudhs = new CuDHS(circuitDepth, 2, 16, 21, 21, 17);
 	cudhs->keyGen();
 }
 
