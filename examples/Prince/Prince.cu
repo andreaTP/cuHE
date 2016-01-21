@@ -1,6 +1,6 @@
 #include "Prince.h"
 #include "Timer.h"
-#include <libiomp/omp.h>
+//#include <omp.h>
 #include "../../cuhe/CuHE.h"
 using namespace cuHE;
 
