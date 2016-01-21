@@ -183,7 +183,7 @@ void Prince::check(int rd) {
 }
 
 void Prince::princeEncrypt(ZZX tar[64], ZZX k0[64], ZZX k1[64]) {
-	otimer ot;
+//	otimer ot;
 
 	round = 0;
 	addRoundKey(tar, k0);
@@ -192,9 +192,9 @@ void Prince::princeEncrypt(ZZX tar[64], ZZX k0[64], ZZX k1[64]) {
 	cout<<"start sbox"<<endl;
 	for (int i=0; i<5; i++) {
 		round++;
-		ot.start();
+//		ot.start();
 		SBOX(tar);//
-		ot.stop();
+//		ot.stop();
 		check(round-1);
 
 		MixColumn(tar);
@@ -202,16 +202,16 @@ void Prince::princeEncrypt(ZZX tar[64], ZZX k0[64], ZZX k1[64]) {
 		addRoundKey(tar, k1);
 	}
 
-	ot.start();
+//	ot.start();
 	SBOX(tar);//
-	ot.stop();
+//	ot.stop();
 	check(round);
 
 	M_p(tar);
 
-	ot.start();
+//	ot.start();
 	INV_SBOX(tar);//
-	ot.stop();
+//	ot.stop();
 	check(round+1);
 
 	for (int i=0; i<5; i++) {
@@ -220,9 +220,9 @@ void Prince::princeEncrypt(ZZX tar[64], ZZX k0[64], ZZX k1[64]) {
 		addRC(tar, round);
 		inv_MixColumn(tar);
 
-		ot.start();
+//		ot.start();
 		INV_SBOX(tar);//
-		ot.stop();
+//		ot.stop();
 		check(round+1);
     }
 	round++;
@@ -233,7 +233,7 @@ void Prince::princeEncrypt(ZZX tar[64], ZZX k0[64], ZZX k1[64]) {
 	for (int i=0; i<64; i++)
 		cudhs->coeffReduce(tar[i], tar[i], circuitDepth-1);
 
-	ot.show("All Sbox");
+//	ot.show("All Sbox");
 }
 
 void Prince::SBOX(ZZX in[64]) {
