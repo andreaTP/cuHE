@@ -210,7 +210,6 @@ void CuDHS::genEk() {
 		coeffReduce(ek_[i], ek_[i], 0);
 		tw *= w;
 	}
-
 	initRelinearization(ek_);
 }
 void CuDHS::coeffReduce(ZZX& out, ZZX in, int lvl) {
