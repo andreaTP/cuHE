@@ -5,7 +5,7 @@ using namespace cuHE;
 int main() {
 	int p = 2;
 	multiGPUs(1);
-	CuDHS *dhs = new CuDHS(5, p, 1, 61, 20, 8191);
+	CuDHS *dhs = new CuDHS(25, p, 16, 25, 25, 21845);
 
 	ZZX x[2], y[2];
 	SetSeed(to_ZZ(time(NULL)));

@@ -1,4 +1,4 @@
-#include "../DHS/DHS.h"
+#include "DHS.h"
 
 class Prince {
 public:

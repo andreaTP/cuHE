@@ -38,7 +38,7 @@ LINKCU	= $(CU) $(CXFLAGS) $(CUFLAGS) $(LINKERS) -link -w
 ## Source Files
 SRCCC	=
 SRCCX	=
-SRCCU	= ../DHS/DHS.cu\
+SRCCU	= DHS.cu\
 		  Prince.cu\
 		  Timer.cu\
 		  test_Prince.cu

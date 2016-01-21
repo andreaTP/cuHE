@@ -46,7 +46,6 @@ Prince::~Prince() {
 void Prince::heSetup() {
 	multiGPUs(1);
 	cudhs = new CuDHS(circuitDepth, 2, 16, 25, 25, 21845);
-	cudhs->keyGen();
 }
 
 void Prince::setMessage(int *m) {
@@ -100,7 +99,7 @@ void Prince::run() {
 	for (int k=0; k<2; k++) {
 		for (int i=0; i<cudhs->numSlot(); i++)
 			SetCoeff(x[k], i, RandomBnd(p));
-		cudhs->batcher->encode(y[k], x[k]);
+//		cudhs->batcher->encode(y[k], x[k]);
 		cudhs->encrypt(y[k], y[k], 0);
 	}
 
@@ -120,7 +119,7 @@ void Prince::run() {
 	ZZX z;
 	cudhs->decrypt(z, cuz.zRep(), 1);
 	cuz.~CuCtxt();
-	cudhs->batcher->decode(z, z);
+//	cudhs->batcher->decode(z, z);
 
 	ZZX chk;
 	clear(chk);
