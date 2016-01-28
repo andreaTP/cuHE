@@ -91,7 +91,7 @@ public:
 
 	void coeffReduce(ZZX& out, ZZX in, int lvl);
 
-//	Batcher *batcher;
+	Batcher *batcher;
 protected:
 	int B; // bound of distribution to sample polynomials from
 	ZZX polyMod_; // x^n-1 usually

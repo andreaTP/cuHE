@@ -45,7 +45,7 @@ CuDHS::CuDHS(int d, int p, int w, int min, int cut, int m) {
 	B = 1;
 	keyGen(); // key generation
 	numSlot_ = param.modLen/factorDegree();
-//	batcher = new Batcher(polyMod_, param.modLen/numSlot_, numSlot_); // setup batching
+	batcher = new Batcher(polyMod_, param.modLen/numSlot_, numSlot_); // setup batching
 }
 CuDHS::~CuDHS() {
 	clear(polyMod_);
@@ -127,6 +127,7 @@ int CuDHS::factorDegree() {
 	int ret = 1;
 	while ( (power(to_ZZ(param.modMsg), ret)-1)%param.mSize != 0 )
 		ret++;
+	cout<<ret<<endl;
 	return ret;
 }
 
