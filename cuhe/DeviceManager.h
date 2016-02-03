@@ -40,19 +40,19 @@ public:
 	DeviceAllocator();
 	~DeviceAllocator();
 
-	char* allocate(std::ptrdiff_t size);
+	char *allocate(std::ptrdiff_t size);
 	// find empty block in map;
 	// if not available, cudaMalloc() and add a block to map
 
-	void deallocate(char* ptr);
+	void deallocate(char *ptr);
 	// remove ptr from map, set block to empty
 
 	void freeAll();
 	// cudaFree() all blocks in map
 
 private:
-	typedef std::multimap<std::ptrdiff_t, char*> FreeBlocks;
-	typedef std::map<char*, std::ptrdiff_t> AllocatedBlocks;
+	typedef std::multimap<std::ptrdiff_t, char *> FreeBlocks;
+	typedef std::map<char *, std::ptrdiff_t> AllocatedBlocks;
 	FreeBlocks freeBlocks;
 	AllocatedBlocks allocatedBlocks;
 };
@@ -65,10 +65,10 @@ void setNumDevices(int num);
 int numDevices();
 
 /** Return a pointer on current device. */
-void* deviceMalloc(size_t size);
+void *deviceMalloc(size_t size);
 
 /** Free a pointer on current device. */
-void deviceFree(void* ptr);
+void deviceFree(void *ptr);
 
 /** Check if DeviceAllocator is enabled. */
 bool deviceAllocatorIsOn();
@@ -82,4 +82,3 @@ void bootDeviceAllocator(size_t size, unsigned long int num = 0);
 void haltDeviceAllocator();
 
 } // end cuHE
-
