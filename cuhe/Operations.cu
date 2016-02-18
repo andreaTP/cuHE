@@ -28,6 +28,7 @@
 #include "CuHE.h"
 
 namespace cuHE {
+
 ///////////////////////////////////////////////////////////////////////////////
 //// Pre-computation //////////////////////////////////////////////////////////
 static ZZ* crtPrime; // decreasing?
@@ -168,13 +169,29 @@ void initCrt(ZZ* coeffModulus) {
 ///////////////////////////////////////////////////////////////////////////////
 static uint64 **d_swap; // conversion buffer
 static uint32 **d_hold; // intt result buffer
+void precomp_ntt(int len) {
+	if (len != 16384 && len != 32768 && len != 65536) {
+    printf("Error: pre-load NTT with wrong length.\n");
+    exit(-1);
+  }
+  // generate twiddle factors on host
+  const ZZ P = to_ZZ(0xffffffff00000001);
+  const ZZ g = to_ZZ((uint64)15893793146607301539);
+  int e0 = 65536/len;
+  ZZ w0 = PowerMod(g, e0, P);
+  uint64 *h_roots = new uint64[len];
+  for (int i=0; i<len; i++)
+    conv(h_roots[i], PowerMod(w0, i, P));
+	preload_ntt(h_roots, len);
+  delete [] h_roots;	
+}
 void initNtt() {
-	preload_ntt(param.nttLen);
+	precomp_ntt(param.nttLen);
 	// temporary result allocation
 	d_swap = new uint64 *[numDevices()];
 	d_hold = new uint32 *[numDevices()];
 	for (int dev=0; dev<numDevices(); dev++) {
-		cudaSetDevice(dev);
+		CSC(cudaSetDevice(dev));
 		CSC(cudaMalloc(&d_swap[dev], param.nttLen*sizeof(uint64)));
 		CSC(cudaMalloc(&d_hold[dev], param.numCrtPrime*param.nttLen*sizeof(uint32)));
 	}
@@ -467,4 +484,5 @@ void barrett(uint32 *dst, uint32 *src, int lvl, int dev, cudaStream_t st) {
 void barrett(uint32 *dst, int lvl, int dev, cudaStream_t st) {
 	barrett(dst, inttResult(dev), lvl, dev, st);
 }
+
 } // end cuHE

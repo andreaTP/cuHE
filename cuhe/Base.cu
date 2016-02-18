@@ -1,25 +1,39 @@
-/* 
- *	The MIT License (MIT)
- *	Copyright (c) 2013-2015 Wei Dai
- *
- *	Permission is hereby granted, free of charge, to any person obtaining a copy
- *	of this software and associated documentation files (the "Software"), to deal
- *	in the Software without restriction, including without limitation the rights
- *	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *	copies of the Software, and to permit persons to whom the Software is
- *	furnished to do so, subject to the following conditions:
- *
- *	The above copyright notice and this permission notice shall be included in
- *	all copies or substantial portions of the Software.
- *
- *	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- *	THE SOFTWARE.
- */
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 Wei Dai
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+// Precompute device data and tranfer to GPUs:
+//    NTT twiddle factors,
+//    CRT prime numbers, etc.,
+//    Barrett Reduction polynomial modulus in ntt/crt domain.
+// Implement CUDA kernels that need those data:
+//    NTT/INTT conversion,
+//    CRT/ICRT conversion,
+//    Barrett Reduction,
+//    Relinearization,
+//    NTT domain arithmetic,
+//    CRT domain arithmetic,
+//    Modulus Switching.
 
 #include "Base.h"
 #include "DeviceManager.h"
@@ -45,28 +59,33 @@ NTL_CLIENT
 namespace cuHE {
 
 ///////////////////////////////////////////////////////////
+// crt constant memory
+#define maxNumPrimes 103 // chosen for 64 KB constant memory
+__constant__ uint32 const_p[maxNumPrimes];
+__constant__ uint32 const_invp[maxNumPrimes*(maxNumPrimes-1)/2];
+__constant__ uint32 const_M[maxNumPrimes];
+__constant__ uint32 const_mi[maxNumPrimes*maxNumPrimes];
+__constant__ uint32 const_bi[maxNumPrimes];
 // ntt twiddle factors in device global memory
-uint64 **d_roots_16k = NULL;
-uint64 **d_roots_32k = NULL;
-uint64 **d_roots_64k = NULL;
+static uint64 **d_roots_16k = NULL;
+static uint64 **d_roots_32k = NULL;
+static uint64 **d_roots_64k = NULL;
+// barrett reduction in device global memory
+static uint64 **d_u_ntt = NULL;
+static uint64 **d_m_ntt = NULL;
+static uint32 **d_m_crt = NULL;
 // ntt twiddle factors in device texture memory
 texture<uint32, 1> tex_roots_16k;
 texture<uint32, 1> tex_roots_32k;
 texture<uint32, 1> tex_roots_64k;
+// barrett reduction in device texture memory
+texture<uint32, 1> tex_u_ntt;
+texture<uint32, 1> tex_m_ntt;
+texture<uint32, 1> tex_m_crt;
+
+///////////////////////////////////////////////////////////
 // pre-load ntt twiddle factors for a specific size
-void preload_ntt(int len) {
-  if (len != 16384 && len != 32768 && len != 65536) {
-    printf("Error: pre-load NTT with wrong length.\n");
-    exit(-1);
-  }
-  // generate twiddle factors on host
-  const ZZ P = to_ZZ(0xffffffff00000001);
-  const ZZ g = to_ZZ((uint64)15893793146607301539);
-  int e0 = 65536/len;
-  ZZ w0 = PowerMod(g, e0, P);
-  uint64 *h_roots = new uint64[len];
-  for (int i=0; i<len; i++)
-    conv(h_roots[i], PowerMod(w0, i, P));
+void preload_ntt(uint64 *h_roots, int len) {
   // copy to device memory
   int nGPUs = numDevices();
   if (len == 16384) {
@@ -102,7 +121,6 @@ void preload_ntt(int len) {
           len*sizeof(uint64)));
     }
   }
-  delete [] h_roots;
   return;
 }
 // free and delete allocated memory space
@@ -134,13 +152,7 @@ void cleanup_ntt() {
   }
   return;
 }
-// crt constant memory
-#define maxNumPrimes 103 // chosen for 64 KB constant memory
-__constant__ uint32 const_p[maxNumPrimes];
-__constant__ uint32 const_invp[maxNumPrimes*(maxNumPrimes-1)/2];
-__constant__ uint32 const_M[maxNumPrimes];
-__constant__ uint32 const_mi[maxNumPrimes*maxNumPrimes];
-__constant__ uint32 const_bi[maxNumPrimes];
+
 void preload_crt_p(uint32* src, int words) {
 	for (int dev=0; dev<numDevices(); dev++) {
 		CSC(cudaSetDevice(dev));
@@ -170,13 +182,7 @@ void load_icrt_bi(uint32* src, int words, int dev, cudaStream_t st) {
 	CSC(cudaMemcpyToSymbolAsync(const_bi, src, words*sizeof(uint32),
 			0, cudaMemcpyHostToDevice, st));
 }
-// barrett reduction texture and device memory
-static uint64 **d_u_ntt;
-static uint64 **d_m_ntt;
-static uint32 **d_m_crt;
-texture<uint32, 1> tex_u_ntt;
-texture<uint32, 1> tex_m_ntt;
-texture<uint32, 1> tex_m_crt;
+
 void preload_barrett_u_n(uint64* src, size_t size) {
 	d_u_ntt = new uint64*[numDevices()];
 	for (int dev=0; dev<numDevices(); dev++) {

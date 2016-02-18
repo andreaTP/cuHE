@@ -23,6 +23,7 @@ SOFTWARE.
 */
 
 #include "../cuhe/Base.h"
+#include "../cuhe/Operations.h"
 #include "../cuhe/Debug.h"
 #include "../cuhe/DeviceManager.h"
 #include <time.h>
@@ -30,9 +31,10 @@ SOFTWARE.
 using namespace cuHE;
 NTL_CLIENT
 
+#define P32 0xffffffff
 #define cnt (1*1024)
 #define DEV 0
-#define CORRECTNESS
+//#define CORRECTNESS
 
 #ifdef CORRECTNESS
 void check_ntt_ext(int len, uint64 *gpu, uint32 *in) {
@@ -77,19 +79,28 @@ float time_ntt(int num, int len, uint64 *dst, uint64 *tmp, uint32 *src) {
 		  ntt_1_16k_ext<<<grid, 64>>>(tmp+num*len*i, src+num*len*i);
 		  ntt_2_16k<<<grid, 64>>>(tmp+num*len*i);
 		  ntt_3_16k<<<grid, 64>>>(dst+num*len*i, tmp+num*len*i);
+      intt_1_16k<<<grid, 64>>>(tmp+num*len*i, dst+num*len*i);
+      ntt_2_16k<<<grid, 64>>>(tmp+num*len*i);
+      intt_3_16k_modcrt<<<grid, 64>>>(src+num*len*i, dst+num*len*i, 0);
 	  }
 	  else if (len == 32768) {
 		  ntt_1_32k_ext<<<grid, 64>>>(tmp+num*len*i, src+num*len*i);
 		  ntt_2_32k<<<grid, 64>>>(tmp+num*len*i);
 		  ntt_3_32k<<<grid, 64>>>(dst+num*len*i, tmp+num*len*i);
+      intt_1_32k<<<grid, 64>>>(tmp+num*len*i, dst+num*len*i);
+      ntt_2_32k<<<grid, 64>>>(tmp+num*len*i);
+      intt_3_32k_modcrt<<<grid, 64>>>(src+num*len*i, dst+num*len*i, 0);
 	  }
 	  else if (len == 65536) {
 		  ntt_1_64k_ext<<<grid, 64>>>(tmp+num*len*i, src+num*len*i);
 		  ntt_2_64k<<<grid, 64>>>(tmp+num*len*i);
 		  ntt_3_64k<<<grid, 64>>>(dst+num*len*i, tmp+num*len*i);
+      intt_1_64k<<<grid, 64>>>(tmp+num*len*i, dst+num*len*i);
+      ntt_2_64k<<<grid, 64>>>(tmp+num*len*i);
+      intt_3_64k_modcrt<<<grid, 64>>>(src+num*len*i, dst+num*len*i, 0);
 	  }
 	}
-    CCE();
+  CCE();
 	CSC(cudaEventRecord(stop, 0));
 	CSC(cudaEventSynchronize(stop));
 	CSC(cudaEventElapsedTime(&ret, start, stop));
@@ -101,7 +112,7 @@ float time_ntt(int num, int len, uint64 *dst, uint64 *tmp, uint32 *src) {
 
 // y = ntt(x), s is temp result
 void test_ntt(float *perf, int numCases, int len) {
-  preload_ntt(len);
+  precomp_ntt(len);
   CSC(cudaSetDevice(DEV));
   uint32 *hx, *dx;
   uint64 *hs, *ds;
@@ -113,10 +124,7 @@ void test_ntt(float *perf, int numCases, int len) {
   CSC(cudaMallocHost(&hs, cnt*len*sizeof(uint64)));
   CSC(cudaMallocHost(&hy, cnt*len*sizeof(uint64)));
   for (int i=0; i<cnt*len; i++) {
-    //hs[i] = ((uint64)rand()<<32)+rand();
-	  hx[i] = rand();
-    hs[i] = 0;
-    hy[i] = 0;
+	  hx[i] = rand()%P32;
   }
   //CSC(cudaMemcpy(ds, hs, cnt*len*sizeof(uint64), cudaMemcpyHostToDevice));
   CSC(cudaMemcpy(dx, hx, cnt*len*sizeof(uint32), cudaMemcpyHostToDevice));
@@ -141,6 +149,8 @@ void test_ntt(float *perf, int numCases, int len) {
 int main() {
   srand(time(NULL));
   cuHE::setNumDevices(1);
+  uint32 crtprime[1] = { P32 };
+  preload_crt_p(crtprime, 1);
   float perf[3][nCases];
   test_ntt(perf[0], nCases, 16384);
   test_ntt(perf[1], nCases, 32768);

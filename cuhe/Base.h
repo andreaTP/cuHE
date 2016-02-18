@@ -46,7 +46,7 @@ namespace cuHE {
 /////////////////////////////////////////////////////
 // generate & copy twiddle factors to device, bind to texture
 // "len": length of NTT (a power of 2)
-void preload_ntt(int len);
+void preload_ntt(uint64 *h_roots, int len);
 // free and delete allocated memory space
 void cleanup_ntt();
 

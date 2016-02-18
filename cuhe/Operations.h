@@ -138,6 +138,8 @@ void genIcrt();
 void getCoeffModuli(ZZ *dst);
 // obtain all coefficient moduli (count = depth())
 
+void precomp_ntt(int len);
+
 // not called externally
 uint64 **ptrNttSwap();
 uint32 **ptrNttHold();
@@ -148,4 +150,5 @@ static uint32 *ptrBarrettCrt(int dev);
 static uint64 *ptrBarrettNtt(int dev);
 static uint32 *ptrBarrettSrc(int dev);
 void setPolyModulus(ZZX m);
+
 } // end cuHE
