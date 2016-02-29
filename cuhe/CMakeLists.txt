@@ -14,8 +14,7 @@ INCLUDE(FindCUDA)
 
 FILE(GLOB SOURCES "*.cu" "*.h")
 
-LIST(APPEND CMAKE_CXX_FLAGS ${OpenMP_CXX_FLAGS})
-LIST(APPEND CMAKE_CXX_FLAGS "-m64 -std=c++11 -O3 -ffast-math -Wall")
+LIST(APPEND CMAKE_CXX_FLAGS "${OpenMP_CXX_FLAGS} -m64 -std=c++11 -O3 -ffast-math -Wall")
 
 LIST(APPEND CUDA_NVCC_FLAGS "-ccbin gcc-${GCC_CUDA_VERISON} -std=c++11 -gencode arch=compute_${GPU_ARCH},code=sm_${GPU_ARCH}")
 
@@ -30,7 +29,7 @@ CUDA_ADD_LIBRARY( cuHE
 	   CuHE.cu
 	   Operations.cu
 	   Relinearization.cu
-	   STATIC
+	   SHARED
 )
 
 TARGET_LINK_LIBRARIES(cuHE ${NTL_LIB} ${M_LIB} ${GMP_LIB} ${GOMP_LIB})

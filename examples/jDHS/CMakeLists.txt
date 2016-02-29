@@ -1,0 +1,32 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 3.2)
+PROJECT(jdhs)
+
+SET(GPU_ARCH "50" CACHE STRING "Cuda architecture number, one of ('20', '30', '32', '35', '37', '50', '52', '53')")
+SET(GCC_CUDA_VERISON "4.9" CACHE STRING "GCC compiler to be used with cuda")
+
+SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cuhe/cmake)
+
+FIND_PACKAGE(NTL REQUIRED)
+
+INCLUDE(FindJNI)
+
+FILE(GLOB SOURCES "*.cc" "*.h")
+
+LIST(APPEND CMAKE_CXX_FLAGS "-m64 -std=c++11 -O3 -Wall")
+
+SET(LIB_NAME "jdhs")
+
+ADD_LIBRARY( jdhs SHARED
+       jcuHE.cc
+)
+
+add_executable(jdhsMain jcuHE.cc)
+
+TARGET_INCLUDE_DIRECTORIES(jdhs PUBLIC ${JNI_INCLUDE_DIRS})
+
+TARGET_INCLUDE_DIRECTORIES(jdhsMain PUBLIC ${JNI_INCLUDE_DIRS})
+
+
+TARGET_LINK_LIBRARIES(jdhs ${CMAKE_SOURCE_DIR}/libcuHE.so ${CMAKE_SOURCE_DIR}/libdhs.so ${NTL_LIB} ${M_LIB} ${GMP_LIB} ${GOMP_LIB})
+
+TARGET_LINK_LIBRARIES(jdhsMain ${CMAKE_SOURCE_DIR}/libcuHE.so ${CMAKE_SOURCE_DIR}/libdhs.so ${NTL_LIB} ${M_LIB} ${GMP_LIB} ${GOMP_LIB})
