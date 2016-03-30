@@ -1,0 +1,43 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
+PROJECT(cuhe)
+
+SET(GPU_ARCH "50" CACHE STRING "Cuda architecture number, one of ('20', '30', '32', '35', '37', '50', '52', '53')")
+SET(GCC_CUDA_VERSION "4.9" CACHE STRING "GCC compiler to be used with cuda")
+
+SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../cmake)
+
+FIND_PACKAGE(NTL REQUIRED)
+FIND_PACKAGE(OpenMP REQUIRED)
+FIND_PACKAGE(CUDA REQUIRED)
+
+INCLUDE(FindCUDA)
+
+FILE(GLOB SOURCES "*.cu" "*.h")
+
+LIST(APPEND CMAKE_CXX_FLAGS "${OpenMP_CXX_FLAGS} -m64 -O3 -ffast-math -Wall")
+
+LIST(APPEND CUDA_NVCC_FLAGS "-ccbin gcc-${GCC_CUDA_VERSION} -std=c++11 -gencode arch=compute_${GPU_ARCH},code=sm_${GPU_ARCH}")
+
+SET(LIB_NAME "cuHECore")
+
+CUDA_BUILD_CLEAN_TARGET()
+
+CUDA_ADD_LIBRARY( cuHECore
+    DeviceManager.cu
+    Base.cu
+    Parameters.cu
+    Operations.cu
+    STATIC
+)
+
+TARGET_LINK_LIBRARIES(cuHECore ${NTL_LIB} ${M_LIB} ${GMP_LIB} ${GOMP_LIB})
+
+CUDA_ADD_LIBRARY( cuHECoreShared
+    DeviceManager.cu
+    Base.cu
+    Parameters.cu
+    Operations.cu
+    SHARED
+)
+
+TARGET_LINK_LIBRARIES(cuHECoreShared ${NTL_LIB} ${M_LIB} ${GMP_LIB} ${GOMP_LIB})

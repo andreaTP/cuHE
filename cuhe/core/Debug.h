@@ -32,35 +32,35 @@ SOFTWARE.
 #include <stdio.h>
 
 // Report error location and terminate, if "cudaError != SUCCESS".
-#define CSC(err)	__cudaSafeCall(err, __FILE__, __LINE__)
+#define CSC(err)  __cudaSafeCall(err, __FILE__, __LINE__)
 // Report error location and terminate, if "cudaError != SUCCESS" occured.
-#define CCE()		__cudaCheckError(__FILE__, __LINE__)
+#define CCE()   __cudaCheckError(__FILE__, __LINE__)
 
 inline void __cudaSafeCall(cudaError err, const char *file, const int line) {
-	if (cudaSuccess != err) {
-		fprintf( stderr, "cudaSafeCall() failed at %s:%i : %s\n", file, line,
-				cudaGetErrorString(err));
-		exit(-1);
-	}
-	return;
+  if (cudaSuccess != err) {
+    fprintf( stderr, "cudaSafeCall() failed at %s:%i : %s\n", file, line,
+        cudaGetErrorString(err));
+    exit(-1);
+  }
+  return;
 }
 inline void __cudaCheckError(const char *file, const int line) {
-	cudaError err = cudaGetLastError();
-	if (cudaSuccess != err) {
-		fprintf(stderr, "cudaCheckError() failed at %s:%i : %s\n", file, line,
-				cudaGetErrorString(err));
-		exit(-1);
-	}
-	// More careful checking. However, this will affect performance.
-	// Comment out if needed.
-	//#define safer
-	#ifdef safer
-	err = cudaDeviceSynchronize();
-	if (cudaSuccess != err) {
-		fprintf(stderr, "cudaCheckError() with sync failed at %s:%i : %s\n", file,
-				line, cudaGetErrorString(err));
-		exit(-1);
-	}
-	#endif
-	return;
+  cudaError err = cudaGetLastError();
+  if (cudaSuccess != err) {
+    fprintf(stderr, "cudaCheckError() failed at %s:%i : %s\n", file, line,
+        cudaGetErrorString(err));
+    exit(-1);
+  }
+  // More careful checking. However, this will affect performance.
+  // Comment out if needed.
+  //#define safer
+  #ifdef safer
+  err = cudaDeviceSynchronize();
+  if (cudaSuccess != err) {
+    fprintf(stderr, "cudaCheckError() with sync failed at %s:%i : %s\n", file,
+        line, cudaGetErrorString(err));
+    exit(-1);
+  }
+  #endif
+  return;
 }

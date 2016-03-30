@@ -36,24 +36,26 @@ SOFTWARE.
 //    Modulus Switching.
 
 #pragma once
-typedef	unsigned int		uint32;	// 32-bit
-typedef unsigned long int	uint64;	// 64-bit
+#include "DeviceManager.h"
 
-namespace cuHE {
+typedef unsigned int    uint32; // 32-bit
+typedef unsigned long int uint64; // 64-bit
+
+namespace cuHE_core {
 
 /////////////////////////////////////////////////////
 //// Transfer Pre-computed Data to GPU Device(s) ////
 /////////////////////////////////////////////////////
 // generate & copy twiddle factors to device, bind to texture
 // "len": length of NTT (a power of 2)
-void preload_ntt(int len);
+void preload_ntt(DeviceManager* dm, int len);
 // free and delete allocated memory space
-void cleanup_ntt();
+void cleanup_ntt(DeviceManager* dm);
 
 // copy twiddle factors from h_roots to device and bind to texture
-void preload_crt_p(uint32* src, int words);
+void preload_crt_p(DeviceManager* dm, uint32* src, int words);
 // copy all generated CRT prime numbers to device constant memory
-void preload_crt_invp(uint32* src, int words);
+void preload_crt_invp(DeviceManager* dm, uint32* src, int words);
 // copy all p_i^(-1) mod p_j to device constant memory
 void load_icrt_M(uint32* src, int words, int dev, cudaStream_t st = 0);
 // copy all generated CRT prime numbers to device constant memory
@@ -62,11 +64,11 @@ void load_icrt_mi(uint32* src, int words, int dev, cudaStream_t st = 0);
 void load_icrt_bi(uint32* src, int words, int dev, cudaStream_t st = 0);
 
 // copy all generated CRT prime numbers to device constant memory
-void preload_barrett_u_n(uint64* src, size_t size);
+void preload_barrett_u_n(DeviceManager* dm, uint64* src, size_t size);
 // copy and bind ntt(crt(x^(2n-1)/m))
-void preload_barrett_m_n(uint64* src, size_t size);
+void preload_barrett_m_n(DeviceManager* dm, uint64* src, size_t size);
 // copy and bind ntt(crt(m))
-void preload_barrett_m_c(uint32* src, size_t size);
+void preload_barrett_m_c(DeviceManager* dm, uint32* src, size_t size);
 // copy and bind crtt(m)
 
 /////////////////////////////////////////////////////////////////////
@@ -113,7 +115,7 @@ __global__ void crt(uint32 *dst, uint32 *src, int pnum, int w32,
     int mlen, int clen);
 // Inverse-CRT conversion kernel
 __global__ void icrt(uint32 *dst, uint32 *src, int pnum, int M_w32,
-		int mi_w32, int mlen, int clen);
+    int mi_w32, int mlen, int clen);
 
 // Barrett Reduction kernels (all 5 of them are needed for one reduction)
 __global__ void barrett_mul_un(uint64 *tar, int pnum, int nlen);
@@ -152,4 +154,4 @@ __global__ void crt_add_nx1(uint32 *y, uint32 *x, uint32 *scalar, int pnum,
 __global__ void modswitch(uint32 *dst, uint32 *src, int pnum, int mlen,
     int clen, int modmsg);
 
-} // namespace cuHE
+} // namespace cuHE_core

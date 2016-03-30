@@ -1,0 +1,173 @@
+/*
+The MIT License (MIT)
+
+Copyright (c) 2015 Wei Dai
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+// Combines NTT, CRT, Barrett reduction.
+// Pre-computation and operations.
+
+#pragma once
+#include "Parameters.h"
+#include "DeviceManager.h"
+#include <NTL/ZZ.h>
+#include <NTL/ZZX.h>
+NTL_CLIENT
+
+typedef unsigned int uint32; // 32-bit
+typedef unsigned long int uint64; // 64-bit
+
+namespace cuHE_core {
+
+class Operations {
+  GlobalParameters* param;
+  DeviceManager* dm;
+  
+  ZZ* crtPrime; // decreasing?
+  ZZ* coeffModulus; // 
+  int* icrtLevel; // one int for each device
+  struct IcrtConst {
+    uint32 *q;
+    uint32 *qp;
+    uint32 *qpinv;
+  } **icrtConst;
+  uint64 **d_barrett_ntt;
+  uint32 **d_barrett_crt;
+  uint32 **d_barrett_src;
+  
+  uint64 **d_swap; // conversion buffer
+  uint32 **d_hold; // intt result buffer
+
+public:
+  Operations();
+  Operations(GlobalParameters* gp);
+  Operations(GlobalParameters* gp, DeviceManager* _dm);
+
+  void setParams(GlobalParameters* gp);
+  void setDeviceManager(DeviceManager* _dm);
+
+  // Pre-computation
+  // generate CRT prime numbers
+  // compute all useful constant device data
+  // output computed coefficient moduli
+  //void initCrt(ZZ* coeffModulus);
+  // for a specific lvl, update ICRT device constant memory
+  void loadIcrtConst(int lvl, int dev, cudaStream_t st = 0);
+  // generate twiddle factors
+  // allocate device memory for temporary results from NTT conversions
+  void initNtt();
+  // compute crt&ntt of polynomial modulus m
+  // compute ntt of x^(2n-1)/m
+  // store on device and bind to texture memory
+  // allocate device memory for temporary results from Barrett reduction
+  //void initBarrett(ZZX m);
+
+  // Get Buffers
+  // return holded intt result pointer
+  uint32 *inttResult(int dev);
+
+  // Operations
+
+  // crt conversion
+  void crt(uint32* dst, uint32* src, int logq, int dev, cudaStream_t st = 0);
+  // icrt conversion, update icrt constants
+  void icrt(uint32* dst, uint32* src, int logq, int dev, cudaStream_t st = 0);
+  // crt polynomial set addition
+  void crtAdd(uint32* sum, uint32* x, uint32* y, int logq, int dev,
+      cudaStream_t st = 0);
+  // crt polynomial set and integer addition
+  void crtAddInt(uint32* sum, uint32* x, unsigned a, int logq, int dev,
+      cudaStream_t st = 0);
+  // crt polynomial set and single polynomial addition
+  void crtAddNX1(uint32* sum, uint32* x, uint32* scalar, int logq, int dev,
+      cudaStream_t st = 0);
+  // modulus switching in crt domain, with double-crt setup
+  void crtModSwitch(uint32 *dst, uint32 *src, int logq, int dev,
+      cudaStream_t st = 0);
+  // crt polynomial set and integer multiplication
+  void crtMulInt(uint32 *prod, uint32 *x, int a, int logq, int dev, cudaStream_t st);
+
+  // NTT on one polynomial with small coefficient
+  void _ntt(uint64 *X, uint32 *x, int dev, cudaStream_t st = 0);
+  void _nttw(uint64 *X, uint32 *x, int coeffwords, int relinIdx, int dev,
+      cudaStream_t st = 0);
+  void _intt(uint32 *x, uint64 *X, int crtidx, int dev, cudaStream_t st = 0);
+  // NTT on a set of crt polynomials
+  void ntt(uint64 *X, uint32 *x, int logq, int dev, cudaStream_t st = 0);
+  void nttw(uint64 *X, uint32 *x, int logq, int dev, cudaStream_t st = 0);
+  void intt(uint32 *x, uint64 *X, int logq, int dev, cudaStream_t st = 0);
+  void inttHold(uint64 *X, int logq, int dev, cudaStream_t st = 0);
+  void inttDoubleDeg(uint32 *x, uint64 *X, int logq, int dev,
+      cudaStream_t st = 0);
+  void inttMod(uint32 *x, uint64 *X, int logq, int dev, cudaStream_t st = 0);
+
+  // NTT polynomial set multiplication
+  void nttMul(uint64 *z, uint64 *y, uint64 *x, int logq, int dev,
+      cudaStream_t st = 0);
+  // NTT polynomial set and NTT single polynomial multiplication
+  void nttMulNX1(uint64 *z, uint64 *x, uint64 *scalar, int logq, int dev,
+      cudaStream_t st = 0);
+
+  // NTT polynomial set addition
+  void nttAdd(uint64 *z, uint64 *y, uint64 *x, int logq, int dev,
+      cudaStream_t st = 0);
+  // NTT polynomial set and NTT single polynomial addition
+  void nttAddNX1(uint64 *z, uint64 *x, uint64 *scalar, int logq, int dev,
+    cudaStream_t st = 0);
+
+  void barrett(uint32 *dst, uint32 *src, int lvl, int dev, cudaStream_t st = 0);
+  void barrett(uint32 *dst, int lvl, int dev, cudaStream_t st = 0);
+
+  // Miscellaneous
+  // generate all CRT prime numbers: = 1 (mod modMsg)
+  // for cutting levels, prime size is cutting size
+  // for the rest, as large as possible: prime < sqrt(P/n)
+  // adjust prime size according to coefficient moduli sizes
+  //void genCrtPrimes();
+  // compute a decreasing sequence of coefficient moduli for polynomial rings
+  void genCoeffModuli();
+  // compute p_i^(-1) mod p_j, for modulus switching in all cutting levels
+  //void genCrtInvPrimes();
+  // compute M=p_0*p_1*...*p_t (t=numCrtPrime(lvl)-1)
+  // compute m_i = M/p_j
+  // compute b_i = m_i^(-1)
+  // for a specific lvl
+  void genIcrtByLevel(int lvl);
+  // genIcrtByLevel(all levels)
+  void genIcrt();
+  // obtain all coefficient moduli (count = depth())
+  void getCoeffModuli(ZZ *dst);
+
+  private:
+
+  // not called externally
+  uint64 **ptrNttSwap();
+  uint32 **ptrNttHold();
+  uint64 *ptrNttSwap(int dev);
+  uint32 *ptrNttHold(int dev);
+  void createBarrettTemporySpace();
+  uint32 *ptrBarrettCrt(int dev);
+  uint64 *ptrBarrettNtt(int dev);
+  uint32 *ptrBarrettSrc(int dev);
+  //void setPolyModulus(ZZX m);
+  };
+
+} // namespace cuHE
