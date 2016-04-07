@@ -61,8 +61,6 @@ struct GlobalParameters{ // global Parameters
 	int _getLevel(int logq);
 };
 
-extern GlobalParameters param;
-
 // Set new parameters with:
 // d -- maximum depth of the circuit;
 // p -- message modulus;
@@ -70,9 +68,9 @@ extern GlobalParameters param;
 // min -- bit-length of the smallest coefficient modulus;
 // cut -- coefficient cutting size in bits (per level);
 // m -- degree of the cyclic polynomial. */
-void setParam(int d, int p, int w, int min, int cut, int m);
+GlobalParameters* setParam(int d, int p, int w, int min, int cut, int m);
 
 // Reset parameters to zeros and delete global parameter.
-void resetParam();
+void resetParam(GlobalParameters* param);
 
 } // namespace cuHE

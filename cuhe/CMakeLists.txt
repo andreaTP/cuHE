@@ -18,17 +18,16 @@ LIST(APPEND CMAKE_CXX_FLAGS "${OpenMP_CXX_FLAGS} -m64 -O3 -ffast-math -Wall")
 
 LIST(APPEND CUDA_NVCC_FLAGS "-ccbin gcc-${GCC_CUDA_VERSION} -std=c++11 -gencode arch=compute_${GPU_ARCH},code=sm_${GPU_ARCH}")
 
-SET(LIB_NAME "cuHE")
+SET(LIB_NAME "cuHECore")
 
 CUDA_BUILD_CLEAN_TARGET()
 
 CUDA_ADD_LIBRARY( cuHE
-    Parameters.cu 
     DeviceManager.cu
     Base.cu
-    CuHE.cu
+    Parameters.cu
     Operations.cu
-    Relinearization.cu
+    CuHE.cu
     Utils.cu
     STATIC
 )
@@ -36,14 +35,13 @@ CUDA_ADD_LIBRARY( cuHE
 TARGET_LINK_LIBRARIES(cuHE ${NTL_LIB} ${M_LIB} ${GMP_LIB} ${GOMP_LIB})
 
 CUDA_ADD_LIBRARY( cuHEShared
-		Parameters.cu 
-		DeviceManager.cu
-		Base.cu
-		CuHE.cu
-		Operations.cu
-		Relinearization.cu
-        Utils.cu
-		SHARED
+    DeviceManager.cu
+    Base.cu
+    Parameters.cu
+    Operations.cu
+    CuHE.cu
+    Utils.cu
+    SHARED
 )
 
 TARGET_LINK_LIBRARIES(cuHEShared ${NTL_LIB} ${M_LIB} ${GMP_LIB} ${GOMP_LIB})

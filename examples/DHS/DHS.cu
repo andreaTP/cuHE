@@ -23,7 +23,6 @@ SOFTWARE.
 */
 
 #include "DHS.h"
-#include "../../cuhe/CuHE.h"
 using namespace cuHE;
 using namespace cuHE_Utils;
 
@@ -31,13 +30,17 @@ using namespace cuHE_Utils;
 // @class CuDHS
 ///////////////////////////////////////////////////////////////////////////////
 //// Constructor //////////////////////////////////////////
-CuDHS::CuDHS(int d, int p, int w, int min, int cut, int m) {
-	setParameters(d, p, w, min, cut, m);
-	coeffMod_ = new ZZ[param.depth];
-	pk_ = new ZZX[param.depth];
-	sk_ = new ZZX[param.depth];
-	if (param.logRelin > 0) {
-		ek_ = new ZZX[param.numEvalKey];
+CuDHS::CuDHS(DeviceManager* _dm, int d, int p, int w, int min, int cut, int m) {
+	dm = _dm;
+	param = setParam(d, p, w, min, cut, m);
+
+	cuhe = new CuHE(param, dm);
+
+	coeffMod_ = new ZZ[param->depth];
+	pk_ = new ZZX[param->depth];
+	sk_ = new ZZX[param->depth];
+	if (param->logRelin > 0) {
+		ek_ = new ZZX[param->numEvalKey];
 	}
 	else {
 		ek_ = NULL;
@@ -45,16 +48,21 @@ CuDHS::CuDHS(int d, int p, int w, int min, int cut, int m) {
 	// generate polynomial modulus
 	genPolyMod_();
 	// create polynomial ring
-	initCuHE(coeffMod_, polyMod_);
+	cuhe->initCuHE(coeffMod_, polyMod_);
 	B = 1;
 	// key generation
 	keyGen();
-	numSlot_ = param.modLen/factorDegree();
+	numSlot_ = param->modLen/factorDegree();
 	// setup batching
-	batcher = new Batcher(polyMod_, param.modLen/numSlot_, numSlot_);
+	if (param->modMsg != 2) {
+		cout<<"Error: This Batcher code only supports 1-bit messages."<<endl;
+		terminate();
+	}
+	batcher = new Batcher(polyMod_, param->modLen/numSlot_, numSlot_);
 }
 
-CuDHS::CuDHS(string key) {
+CuDHS::CuDHS(DeviceManager* _dm, string key) {
+	dm = _dm;
 	PicklableMap* pm = new PicklableMap(key);
 
 	int d = stoi( pm->get("d")->getValues() );
@@ -64,15 +72,17 @@ CuDHS::CuDHS(string key) {
 	int cut = stoi( pm->get("cut")->getValues() );
 	int m = stoi( pm->get("m")->getValues() );
 
-	setParameters(d, p, w, min, cut, m);
+	param = setParam(d, p, w, min, cut, m);
+
+	cuhe = new CuHE(param, dm);
 
 	coeffMod_ = pm->get("coeffMod")->getCoeffs();
 
 	polyMod_ = pm->get("polyMod")->getPoly();
 
-	pk_ = new ZZX[param.depth];
+	pk_ = new ZZX[param->depth];
 
-	for (int i=0; i < param.depth; i++) {
+	for (int i=0; i < param->depth; i++) {
 		stringstream buffer;
 		buffer << "pk" << i;
 
@@ -83,13 +93,13 @@ CuDHS::CuDHS(string key) {
 
 	try {
 		pm->get("sk0");
-		sk_ = new ZZX[param.depth];
+		sk_ = new ZZX[param->depth];
 	} catch (char const* s) {
 		sk_ = NULL;
 	}
 
 	if (sk_ != NULL) {
-		for (int i=0; i < param.depth; i++) {
+		for (int i=0; i < param->depth; i++) {
 			stringstream buffer;
 			buffer << "sk" << i;
 
@@ -97,10 +107,10 @@ CuDHS::CuDHS(string key) {
 		}
 	}
 
-	if (param.logRelin > 0) {
-		ek_ = new ZZX[param.numEvalKey];
+	if (param->logRelin > 0) {
+		ek_ = new ZZX[param->numEvalKey];
 
-		for (int i=0; i < param.numEvalKey; i++) {
+		for (int i=0; i < param->numEvalKey; i++) {
 			stringstream buffer;
 			buffer << "ek" << i;
 
@@ -110,11 +120,16 @@ CuDHS::CuDHS(string key) {
 		ek_ = NULL;
 	}
 
-	initCuHE(coeffMod_, polyMod_); // create polynomial ring
+	cuhe->initCuHE(coeffMod_, polyMod_); // create polynomial ring
 	B = 1;
 
-	numSlot_ = param.modLen/factorDegree();
-	batcher = new Batcher(polyMod_, param.modLen/numSlot_, numSlot_); // setup batching
+	numSlot_ = param->modLen/factorDegree();
+
+	if (param->modMsg != 2) {
+		cout<<"Error: This Batcher code only supports 1-bit messages."<<endl;
+		terminate();
+	}
+	batcher = new Batcher(polyMod_, param->modLen/numSlot_, numSlot_); // setup batching
 }
 
 string CuDHS::getPublicKey() {
@@ -126,44 +141,44 @@ vector<Picklable*> CuDHS::getPublicPicklables() {
 	vector<Picklable*> ps;
   ZZ* zz = new ZZ[1];
 
-  zz[0] = conv<ZZ>(param.depth);
+  zz[0] = conv<ZZ>(param->depth);
   Picklable* d = new Picklable("d", zz, 1);
   ps.push_back(d);
 
-  zz[0] = conv<ZZ>(param.modMsg);
+  zz[0] = conv<ZZ>(param->modMsg);
   Picklable* p = new Picklable("p", zz, 1);
   ps.push_back(p);
 
-  zz[0] = conv<ZZ>(param.logRelin);
+  zz[0] = conv<ZZ>(param->logRelin);
   Picklable* w = new Picklable("w", zz, 1);
   ps.push_back(w);
 
-  zz[0] = conv<ZZ>(param.logCoeffMin);
+  zz[0] = conv<ZZ>(param->logCoeffMin);
   Picklable* min = new Picklable("min", zz, 1);
   ps.push_back(min);
 
-  zz[0] = conv<ZZ>(param.logCoeffCut);
+  zz[0] = conv<ZZ>(param->logCoeffCut);
   Picklable* cut = new Picklable("cut", zz, 1);
   ps.push_back(cut);
 
-  zz[0] = conv<ZZ>(param.mSize);
+  zz[0] = conv<ZZ>(param->mSize);
   Picklable* m = new Picklable("m", zz, 1);
   ps.push_back(m);
 
-  Picklable* coeffMod = new Picklable("coeffMod", coeffMod_, param.depth);
+  Picklable* coeffMod = new Picklable("coeffMod", coeffMod_, param->depth);
   ps.push_back(coeffMod);
 
   Picklable* polyMod = new Picklable("polyMod", polyMod_);
   ps.push_back(polyMod);
 
-  for (int i=0; i < param.depth; i++) {
+  for (int i=0; i < param->depth; i++) {
 		stringstream buffer;
 		buffer << "pk" << i;
 
 		ps.push_back( new Picklable(buffer.str(), pk_[i]) );
 	}
 
-  for (int i=0; i < param.numEvalKey; i++) {
+  for (int i=0; i < param->numEvalKey; i++) {
 		stringstream buffer;
 		buffer << "ek" << i;
 
@@ -176,7 +191,7 @@ vector<Picklable*> CuDHS::getPublicPicklables() {
 string CuDHS::getPrivateKey() {
 	vector<Picklable*> ps = getPublicPicklables();
 
-	for (int i=0; i < param.depth; i++) {
+	for (int i=0; i < param->depth; i++) {
 		stringstream buffer;
 		buffer << "sk" << i;
 
@@ -205,7 +220,7 @@ ZZX* CuDHS::ek() { return ek_;};
 //// Primitives ///////////////////////////////////////////
 void CuDHS::keyGen() {
 	genPkSk();
-	if (param.logRelin > 0) {
+	if (param->logRelin > 0) {
 		genEk();
 	}
 }
@@ -215,12 +230,12 @@ void CuDHS::encrypt(ZZX& out, ZZX in, int lvl) {
 	e = sample();
 	coeffReduce(s, s, lvl);
 
-	mulZZX(t, pk_[lvl], s, lvl, 0, 0);
+	cuhe->mulZZX(t, pk_[lvl], s, lvl, 0, 0);
 //	t = pk_[lvl]*s;
 //	t %= polyMod_;
 //	coeffReduce(t, t, lvl);
 
-	t += e*param.modMsg+in;
+	t += e*param->modMsg+in;
 	coeffReduce(t, t, lvl);
 	out = t;
 }
@@ -233,11 +248,11 @@ void CuDHS::decrypt(ZZX& out, ZZX in, int lvl, int maxMulPath) {
 	ZZ x;
 	ZZX t = in;
 	coeffReduce(t, t, lvl);
-	if (param.logRelin > 0)
+	if (param->logRelin > 0)
 		for (int i=0; i<maxMulPath; i++)
-			mulZZX(t, t, sk_[lvl], lvl, 0, 0);
+			cuhe->mulZZX(t, t, sk_[lvl], lvl, 0, 0);
 	else
-		mulZZX(t, t, sk_[lvl], lvl, 0, 0);
+		cuhe->mulZZX(t, t, sk_[lvl], lvl, 0, 0);
 //	ZZX t = sk_[lvl]*in;
 //	t %= polyMod_;
 //	coeffReduce(t, t, coeffMod_[lvl]);
@@ -247,7 +262,7 @@ void CuDHS::decrypt(ZZX& out, ZZX in, int lvl, int maxMulPath) {
 		x = coeff(t, i);
 		if (x > ((coeffMod_[lvl]-1)/2))
 			x -= coeffMod_[lvl];
-		SetCoeff(out, i, (x%param.modMsg));
+		SetCoeff(out, i, (x%param->modMsg));
 	}
 }
 void CuDHS::unbalance(ZZX& x, int lvl) {
@@ -272,7 +287,7 @@ void CuDHS::balance(ZZX& x, int lvl) {
 //// Tools ////////////////////////////////////////////////
 int CuDHS::factorDegree() {
 	int ret = 1;
-	while ( (power(to_ZZ(param.modMsg), ret)-1)%param.mSize != 0 )
+	while ( (power(to_ZZ(param->modMsg), ret)-1)%param->mSize != 0 )
 		ret++;
 	return ret;
 }
@@ -280,24 +295,24 @@ int CuDHS::factorDegree() {
 void CuDHS::genPolyMod_() {
 	int s;
 	polyMod_ = 1;
-	ZZX *t_vec = new ZZX[param.mSize];
-	int *s_vec = new int[param.mSize];
-	for (int i=0; i<param.mSize; i++)
+	ZZX *t_vec = new ZZX[param->mSize];
+	int *s_vec = new int[param->mSize];
+	for (int i=0; i<param->mSize; i++)
 		s_vec[i] = 0;
-	for (int d=1; d<=param.mSize; d++) {
-		if (GCD(d, param.mSize) == d) {
+	for (int d=1; d<=param->mSize; d++) {
+		if (GCD(d, param->mSize) == d) {
 			ZZX t;
 			SetCoeff(t, 0 , -1);
-			SetCoeff(t, param.mSize/d, 1);
+			SetCoeff(t, param->mSize/d, 1);
 			s = mobuisFunction(d);
 			t_vec[d-1] = t;
 			s_vec[d-1] = s;
 		}
 	}
-	for (int i=0; i<param.mSize; i++)
+	for (int i=0; i<param->mSize; i++)
 		if (s_vec[i] == 1)
 			polyMod_ *= t_vec[i];
-	for (int i=0; i<param.mSize; i++)
+	for (int i=0; i<param->mSize; i++)
 		if (s_vec[i] == -1)
 			polyMod_ /=  t_vec[i];
 	delete [] t_vec;
@@ -311,7 +326,7 @@ void CuDHS::genPkSk() {
 	while (!isfound) {
 		isfound = true;
 		ft = sample();
-		f = ft*param.modMsg + 1;
+		f = ft*param->modMsg + 1;
 		coeffReduce(f, f, 0);//
 		findInverse(f_inv, f, coeffMod_[0], isfound);
 		coeffReduce(f_inv, f_inv, 0);
@@ -321,16 +336,16 @@ void CuDHS::genPkSk() {
 	coeffReduce(g, g, 0);
 	// sk[0], pk[0] from (f, g, f_inv)
 	sk_[0] = f;
-	mulZZX(pk_[0], g, f_inv, 0, 0, 0); // pk[0] = g*f_inv, reduce
+	cuhe->mulZZX(pk_[0], g, f_inv, 0, 0, 0); // pk[0] = g*f_inv, reduce
 //	cout<<pk_[0]<<endl;
 //	pk_[0] = g*f_inv;
 //	pk_[0] %= polyMod_;
 //	coeffReduce(pk_[0], pk_[0], 0);
 
-	pk_[0] *= param.modMsg;
+	pk_[0] *= param->modMsg;
 	coeffReduce(pk_[0], pk_[0], 0);
 	coeffReduce(sk_[0], sk_[0], 0);
-	for(int i=1; i<param.depth; i++){
+	for(int i=1; i<param->depth; i++){
 		sk_[i] = sk_[i-1];
 		coeffReduce(sk_[i], sk_[i], i);
 		pk_[i] = pk_[i-1];
@@ -340,17 +355,17 @@ void CuDHS::genPkSk() {
 void CuDHS::genEk() {
 	ZZX tk = sk_[0];
 	ZZ tw =to_ZZ(1);
-	ZZ w = to_ZZ(1)<<param.logRelin;
+	ZZ w = to_ZZ(1)<<param->logRelin;
 	ZZX s, e, result, tp;
-	for (int i=0; i<param.numEvalKey; i++) {
+	for (int i=0; i<param->numEvalKey; i++) {
 		tp = tk*tw;
 		s = sample();
 		e = sample();
 		coeffReduce(s, s, 0);
 		coeffReduce(e, e, 0);
 		coeffReduce(tp, tp, 0);
-		mulZZX(ek_[i], pk_[0], s, 0, 0, 0);
-		ek_[i] += e*param.modMsg+tp;
+		cuhe->mulZZX(ek_[i], pk_[0], s, 0, 0, 0);
+		ek_[i] += e*param->modMsg+tp;
 //		ek2.key[i] = pk[0]*s + e*p + tp;
 //		Arith_PolyReduce(ek2.key[i], ek2.key[i]);
 
@@ -358,7 +373,7 @@ void CuDHS::genEk() {
 		tw *= w;
 	}
 
-	initRelinearization(ek_);
+	cuhe->initRelinearization(ek_);
 }
 void CuDHS::coeffReduce(ZZX& out, ZZX in, int lvl) {
 	coeffReduce(out, in, coeffMod_[lvl]);
@@ -370,7 +385,7 @@ void CuDHS::coeffReduce(ZZX& out, ZZX in, ZZ q) {
 }
 ZZX CuDHS::sample(){
 	ZZX ret;
-	for (int i=0; i<param.modLen; i++)
+	for (int i=0; i<param->modLen; i++)
 		SetCoeff(ret, i, RandomBnd(to_ZZ(2*B+1))-B);
 	return ret;
 }
@@ -388,7 +403,7 @@ void CuDHS::findInverse(ZZX &f_inv, ZZX &f, ZZ &q, bool &isfound) {
 		isfound = false;
 	}
 	ZZ_pX tp = rep(f_inv_);
-	for(int i=0; i<param.modLen; i++)
+	for(int i=0; i<param->modLen; i++)
 		SetCoeff(f_inv, i, rep(coeff(tp, i)));
 }
 int CuDHS::mobuisFunction(int n) {
@@ -420,10 +435,12 @@ int CuDHS::mobuisFunction(int n) {
 ///////////////////////////////////////////////////////////////////////////////
 //// Constructor //////////////////////////////////////////
 Batcher::Batcher(ZZX polymod, int f_degree, int f_size) {
-	if (param.modMsg != 2) {
+	/*
+	if (param->modMsg != 2) {
 		cout<<"Error: This Batcher code only supports 1-bit messages."<<endl;
 		terminate();
 	}
+	*/
 	ZZ_p::init(to_ZZ(2));
 	SetModulus(polymod);
 	ComputeFactors(f_degree, f_size);

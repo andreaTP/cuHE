@@ -33,7 +33,7 @@ SOFTWARE.
 
 using namespace std;
 
-namespace cuHE_core {
+namespace cuHE {
 
 // A customized memory method for each GPU device.
 class DeviceAllocator {

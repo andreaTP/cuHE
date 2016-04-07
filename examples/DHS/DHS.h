@@ -38,6 +38,7 @@ proposed by Yarkin Doroz, Yin Hu and Berk Sunar (DHS).
 #include <vector>
 #include <string>
 #include "../../cuhe/Utils.h"
+#include "../../cuhe/CuHE.h"
 NTL_CLIENT
 
 // Batching technique
@@ -66,10 +67,13 @@ private:
 
 // DHS scheme for CUDA GPUs
 class CuDHS {
+	cuHE::DeviceManager* dm;
+	cuHE::GlobalParameters* param;
 public:
+	cuHE::CuHE* cuhe;
 	// Constructor
-	CuDHS(int d, int p, int w, int min, int cut, int m);
-	CuDHS(string keys);
+	CuDHS(cuHE::DeviceManager* _dm, int d, int p, int w, int min, int cut, int m);
+	CuDHS(cuHE::DeviceManager* _dm, string keys);
 	~CuDHS();
 	// Get methods
 	ZZX polyMod();

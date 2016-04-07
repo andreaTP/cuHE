@@ -55,19 +55,25 @@ void checkXor() {
     dhs->encrypt(y[k], y[k], 0);
   }
 
-  CuCtxt* cuy = new CuCtxt[2];
-  CuCtxt cuz;
-  for (int k=0; k<2; k++) {
-    cuy[k].setLevel(0, 0, y[k]);
-    cuy[k].x2n(); // or x2c() should work as well
-  }
-  cXor(cuz, cuy[0], cuy[1]); // use cXor
-  delete [] cuy;
+  CuCtxt* cuy1 = new CuCtxt(dhs->cuhe);
+  CuCtxt* cuy2 = new CuCtxt(dhs->cuhe);
+
+  CuCtxt* cuz = new CuCtxt(dhs->cuhe);
+
+  cuy1->setLevel(0, 0, y[0]);
+  cuy1->x2n(); // or x2c() should work as well
+
+  cuy2->setLevel(0, 0, y[1]);
+  cuy2->x2n(); // or x2c() should work as well
+
+  dhs->cuhe->cXor(*cuz, *cuy1, *cuy2); // use cXor
+  cuy1->~CuCtxt();
+  cuy2->~CuCtxt();
   // no relin or modswitch!
-  cuz.x2z();
+  cuz->x2z();
 
   ZZX z;
-  dhs->decrypt(z, cuz.zRep(), 0); // decrypt level is 0
+  dhs->decrypt(z, cuz->zRep(), 0); // decrypt level is 0
   dhs->batcher->decode(z, z);
 
   ZZX chk;
@@ -75,6 +81,7 @@ void checkXor() {
   for (int i=0; i<dhs->numSlot(); i++)
     SetCoeff(chk, i, (coeff(x[0], i)+coeff(x[1], i))%to_ZZ(p));
 
+  cuz->~CuCtxt();
   cout<<"xor\t";
   if (z == chk)
     cout<<"right"<<endl;
@@ -91,21 +98,22 @@ void checkNot() {
   dhs->batcher->encode(y[0], x[0]);
   dhs->encrypt(y[0], y[0], 0);
 
-  CuCtxt cuz;
-  cuz.setLevel(0, 0, y[0]);
-  cuz.x2c();
+  CuCtxt* cuz = new CuCtxt(dhs->cuhe);
+  cuz->setLevel(0, 0, y[0]);
+  cuz->x2c();
 
-  cNot(cuz, cuz); // use cNot
+  dhs->cuhe->cNot(*cuz, *cuz); // use cNot
   // no relin or modswitch?
-  cuz.x2z();
+  cuz->x2z();
 
   ZZX z;
-  dhs->decrypt(z, cuz.zRep(), 0); // decrypt level is 0
+  dhs->decrypt(z, cuz->zRep(), 0); // decrypt level is 0
   dhs->batcher->decode(z, z);
 
   ZZ ZERO = to_ZZ(0);
   ZZ ONE = to_ZZ(1);
 
+  cuz->~CuCtxt();
   ZZX chk;
   clear(chk);
   for (int i=0; i<dhs->numSlot(); i++) {
@@ -132,23 +140,31 @@ void checkAnd() {
     dhs->encrypt(y[k], y[k], 0);
   }
 
-  CuCtxt* cuy = new CuCtxt[2];
-  CuCtxt cuz;
-  for (int k=0; k<2; k++) {
-    cuy[k].setLevel(0, 0, y[k]);
-    cuy[k].x2n();
-  }
-  cAnd(cuz, cuy[0], cuy[1]);
-  delete [] cuy;  
-  cuz.relin();
-  cuz.modSwitch();
-  cuz.x2z();
+  CuCtxt* cuy1 = new CuCtxt(dhs->cuhe);
+  CuCtxt* cuy2 = new CuCtxt(dhs->cuhe);
+
+  CuCtxt* cuz = new CuCtxt(dhs->cuhe);
+
+  cuy1->setLevel(0, 0, y[0]);
+  cuy1->x2n(); // or x2c() should work as well
+
+  cuy2->setLevel(0, 0, y[1]);
+  cuy2->x2n(); // or x2c() should work as well
+
+  dhs->cuhe->cAnd(*cuz, *cuy1, *cuy2);
+  cuy1->~CuCtxt();
+  cuy2->~CuCtxt();
+
+  cuz->relin();
+  cuz->modSwitch();
+  cuz->x2z();
 
 
   ZZX z;
-  dhs->decrypt(z, cuz.zRep(), 1);
+  dhs->decrypt(z, cuz->zRep(), 1);
   dhs->batcher->decode(z, z);
 
+  cuz->~CuCtxt();
   ZZX chk;
   clear(chk);
   for (int i=0; i<dhs->numSlot(); i++)
@@ -162,7 +178,7 @@ void checkAnd() {
   return;
 }
 
-void checkKeys() {
+void checkKeys(DeviceManager* dm) {
   remove( "private.key" );
   remove( "public.key" );
   ofstream f;
@@ -182,7 +198,7 @@ void checkKeys() {
       istreambuf_iterator<char>());
   dhs->batcher->encode(y, x);
   dhs->encrypt(y, y, 0);
-  CuDHS *dhs2 = new CuDHS(privateKey);
+  CuDHS *dhs2 = new CuDHS(dm, privateKey);
   dhs2->decrypt(z, y, 0); // decrypt level is 0
   dhs2->batcher->decode(z, z);
   bool correct = true;
@@ -191,7 +207,7 @@ void checkKeys() {
   // dhs3(public) --> dhs
   ifstream pub("public.key", ios::in | ios::binary);
   string publicKey((istreambuf_iterator<char>(pub)), istreambuf_iterator<char>());
-  CuDHS *dhs3 = new CuDHS(publicKey);
+  CuDHS *dhs3 = new CuDHS(dm, publicKey);
   dhs3->batcher->encode(y, x);
   dhs3->encrypt(y, y, 0);
   dhs->decrypt(z, y, 0); // decrypt level is 0
@@ -210,12 +226,10 @@ void checkKeys() {
   delete dhs3;  
 }
 
-
 int main() {
-  // set the number of GPUs to use
-  multiGPUs(1);
   // initialize HE scheme
-  dhs = new CuDHS(5, p, 1, 61, 20, 8191);
+  auto dm = new DeviceManager();
+  dhs = new CuDHS(dm, 5, p, 1, 61, 20, 8191);
   // set random seed
   SetSeed(to_ZZ(time(NULL)));
 
@@ -223,8 +237,9 @@ int main() {
   checkXor();
   checkNot();
   checkAnd();
-  checkKeys();
-
+  checkKeys(dm);
+  
   delete dhs;
+  delete dm;
   return 0;
 }

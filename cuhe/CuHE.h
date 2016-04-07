@@ -28,6 +28,8 @@ SOFTWARE.
 
 #pragma once
 #include "Parameters.h"
+#include "DeviceManager.h"
+#include "Operations.h"
 #include <cuda_runtime_api.h>
 #include <cuda.h>
 #include <NTL/ZZ.h>
@@ -40,13 +42,15 @@ typedef unsigned long int uint64; // 64-bit
 
 namespace cuHE {
 
+class CuHE;
+
 // @class CuPolynomial
 // Defines an abstract polynomial on GPU.
 // It has no knowledge of circuits or levels.
 class CuPolynomial {
 public:
 	// Constructor
-	CuPolynomial();
+	CuPolynomial(CuHE* _cuhe);
 	~CuPolynomial();
 	void reset();
 	// Set method
@@ -85,6 +89,7 @@ public:
 	virtual size_t cRepSize() = 0;
 	virtual size_t nRepSize() = 0;
 protected:
+	CuHE* cuhe;
 	// Domain Conversions
 	void z2r(cudaStream_t st = 0); // ZZX -> RAW
 	void r2z(cudaStream_t st = 0); // RAW -> ZZX
@@ -111,7 +116,7 @@ protected:
 class CuCtxt: public CuPolynomial {
 public:
 	// Set Methods
-	CuCtxt():CuPolynomial(){ level_ = -1;};
+	CuCtxt(CuHE* _cuhe):CuPolynomial(_cuhe){ level_ = -1;};
 	// initialize witout value
 	void setLevel(int lvl, int dom, int dev, cudaStream_t st = 0);
 	// initialize with ZZX domain value
@@ -146,11 +151,51 @@ public:
 	size_t nRepSize();
 };
 
+class CuHE {
+	// Initailization
+	uint32 **dhBuffer_; // pinned memory for ZZX-Raw conversions
+
+  uint64 **d_barrett_ntt;
+  uint32 **d_barrett_crt;
+  uint32 **d_barrett_src;
+
+  //Relinearization
+  uint64** d_relin; // nttw conversion buffer
+  uint64*** d_ek; // buffer for a part of eval keys
+  uint64** h_ek; // all eval keys in ntt domain
+  int more = 1; // 1 <= more <= param.numCrtPrime
+
+public:
+	DeviceManager* dm;
+	GlobalParameters* param;
+	Operations* op;
+
+CuHE(GlobalParameters* _param, DeviceManager* _dm);
+~CuHE();
+
+uint32 **getDhBuffer();
+
+uint32 *ptrBarrettCrt(int dev);
+uint64 *ptrBarrettNtt(int dev);
+uint32 *ptrBarrettSrc(int dev);
+
+// Pre-computation
+// convert evalkey to ntt domain
+// store ntt(evalkey) in CPU memory efficiently
+// maybe GPU memory
+void initRelin(ZZX* evalkey);
+
+// Operations
+// relinearization
+void relinearization(uint64 *dst, uint32 *src, int lvl, int dev,
+    cudaStream_t st = 0);
+
 // Initailization
 // Input: polynomial modulus;
 // Process: enables CUDA functionalities, pre-compute device data;
 // Output: coefficient moduli.
 void initCuHE(ZZ *coeffMod_, ZZX modulus);
+
 // Start before circuit evaluation to use an customized CUDA device
 // memory allocator. Only use it for online allocations.
 void startAllocator();
@@ -206,5 +251,30 @@ void moveTo(CuCtxt& x, int dstDev, cudaStream_t st = 0);
 // src remains unchanged
 // !!! stream must be one on the source device
 void copyTo(CuCtxt& dst, CuCtxt& src, int dstDev, cudaStream_t st = 0);
+
+private:
+  // Pre-computation
+  // generate CRT prime numbers
+  // compute all useful constant device data
+  // output computed coefficient moduli
+  void initCrt(ZZ* coeffModulus);
+  // compute crt&ntt of polynomial modulus m
+  // compute ntt of x^(2n-1)/m
+  // store on device and bind to texture memory
+  // allocate device memory for temporary results from Barrett reduction
+  void initBarrett(ZZX m);
+  void createBarrettTemporySpace();
+
+  // Miscellaneous
+  // generate all CRT prime numbers: = 1 (mod modMsg)
+  // for cutting levels, prime size is cutting size
+  // for the rest, as large as possible: prime < sqrt(P/n)
+  // adjust prime size according to coefficient moduli sizes
+  void genCrtPrimes();
+  // compute p_i^(-1) mod p_j, for modulus switching in all cutting levels
+  void genCrtInvPrimes();
+
+	void setPolyModulus(ZZX m);
+};
 
 } // namespace cuHE

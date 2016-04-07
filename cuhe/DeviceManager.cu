@@ -29,7 +29,7 @@ SOFTWARE.
 #include "DeviceManager.h"
 #include "Debug.h"
 
-namespace cuHE_core {
+namespace cuHE {
 
 // return the id of current selected device
 static __inline__ int nowDevice() {

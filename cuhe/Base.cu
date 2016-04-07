@@ -43,7 +43,7 @@ NTL_CLIENT
 #define gdimy gridDim.y
 #define gdimz gridDim.z
 
-namespace cuHE_core {
+namespace cuHE {
 
 ///////////////////////////////////////////////////////////
 // ntt twiddle factors in device global memory
@@ -54,6 +54,7 @@ uint64 **d_roots_64k = NULL;
 texture<uint32, 1> tex_roots_16k;
 texture<uint32, 1> tex_roots_32k;
 texture<uint32, 1> tex_roots_64k;
+
 // pre-load ntt twiddle factors for a specific size
 void preload_ntt(DeviceManager* dm, int len) {
   if (len != 16384 && len != 32768 && len != 65536) {

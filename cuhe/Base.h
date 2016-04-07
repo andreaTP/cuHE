@@ -41,7 +41,7 @@ SOFTWARE.
 typedef unsigned int    uint32; // 32-bit
 typedef unsigned long int uint64; // 64-bit
 
-namespace cuHE_core {
+namespace cuHE {
 
 /////////////////////////////////////////////////////
 //// Transfer Pre-computed Data to GPU Device(s) ////
