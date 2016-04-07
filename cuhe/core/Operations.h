@@ -41,22 +41,22 @@ class Operations {
   GlobalParameters* param;
   DeviceManager* dm;
   
-  ZZ* crtPrime; // decreasing?
-  ZZ* coeffModulus; // 
+  //ZZ* crtPrime; // decreasing?
+  //ZZ* coeffModulus; // 
   int* icrtLevel; // one int for each device
   struct IcrtConst {
     uint32 *q;
     uint32 *qp;
     uint32 *qpinv;
   } **icrtConst;
-  uint64 **d_barrett_ntt;
-  uint32 **d_barrett_crt;
-  uint32 **d_barrett_src;
-  
+
   uint64 **d_swap; // conversion buffer
   uint32 **d_hold; // intt result buffer
 
 public:
+  ZZ* crtPrime; // decreasing?
+  ZZ* coeffModulus; //
+
   Operations();
   Operations(GlobalParameters* gp);
   Operations(GlobalParameters* gp, DeviceManager* _dm);
@@ -164,9 +164,9 @@ public:
   uint64 *ptrNttSwap(int dev);
   uint32 *ptrNttHold(int dev);
   void createBarrettTemporySpace();
-  uint32 *ptrBarrettCrt(int dev);
-  uint64 *ptrBarrettNtt(int dev);
-  uint32 *ptrBarrettSrc(int dev);
+  //uint32 *ptrBarrettCrt(int dev);
+  //uint64 *ptrBarrettNtt(int dev);
+  //uint32 *ptrBarrettSrc(int dev);
   //void setPolyModulus(ZZX m);
   };
 

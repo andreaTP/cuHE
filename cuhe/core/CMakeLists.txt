@@ -27,6 +27,7 @@ CUDA_ADD_LIBRARY( cuHECore
     Base.cu
     Parameters.cu
     Operations.cu
+    CuHE.cu
     STATIC
 )
 
@@ -37,6 +38,7 @@ CUDA_ADD_LIBRARY( cuHECoreShared
     Base.cu
     Parameters.cu
     Operations.cu
+    CuHE.cu
     SHARED
 )
 

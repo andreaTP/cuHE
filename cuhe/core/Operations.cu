@@ -319,7 +319,7 @@ uint64 **Operations::ptrNttSwap() { return d_swap;}
 uint32 **Operations::ptrNttHold() {	return d_hold;}
 uint64 *Operations::ptrNttSwap(int dev) { return d_swap[dev];}
 uint32 *Operations::ptrNttHold(int dev) { return d_hold[dev];}
-
+/*
 void Operations::createBarrettTemporySpace() {
 	d_barrett_crt = new uint32*[dm->numDevices()];
 	d_barrett_ntt = new uint64*[dm->numDevices()];
@@ -334,11 +334,11 @@ void Operations::createBarrettTemporySpace() {
 				param->numCrtPrime*param->nttLen*sizeof(uint32)));
 	});
 }
+
 uint32 *Operations::ptrBarrettCrt(int dev) { return d_barrett_crt[dev];}
 uint64 *Operations::ptrBarrettNtt(int dev) { return d_barrett_ntt[dev];}
 uint32 *Operations::ptrBarrettSrc(int dev) { return d_barrett_src[dev];}
 
-/*
 void Operations::setPolyModulus(ZZX m) {
 	// compute NTL type zm, zu
 	ZZ zq = coeffModulus[0];
