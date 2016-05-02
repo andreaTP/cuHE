@@ -28,6 +28,7 @@ SOFTWARE.
 #include "ModP.h"
 #include <NTL/ZZ.h>
 #include <NTL/ZZX.h>
+#include <map>
 NTL_CLIENT
 
 #define bidx  blockIdx.x
@@ -44,6 +45,56 @@ NTL_CLIENT
 #define gdimz gridDim.z
 
 namespace cuHE {
+
+#define maxNumPrimes 103 // chosen for 64 KB constant memory
+struct GPUData {
+  bool used = false;
+  ///////////////////////////////////////////////////////////
+  // ntt twiddle factors in device global memory
+  uint64 **d_roots_16k = NULL;
+  uint64 **d_roots_32k = NULL;
+  uint64 **d_roots_64k = NULL;
+  // ntt twiddle factors in device texture memory
+  texture<uint32, 1> tex_roots_16k;
+  texture<uint32, 1> tex_roots_32k;
+  texture<uint32, 1> tex_roots_64k;
+
+  // crt constant memory
+  uint32 const_p[maxNumPrimes];
+  uint32 const_invp[maxNumPrimes*(maxNumPrimes-1)/2];
+  uint32 const_M[maxNumPrimes];
+  uint32 const_mi[maxNumPrimes*maxNumPrimes];
+  uint32 const_bi[maxNumPrimes];
+
+  // barrett reduction texture and device memory
+  uint64 **d_u_ntt;
+  uint64 **d_m_ntt;
+  uint32 **d_m_crt;
+  texture<uint32, 1> tex_u_ntt;
+  texture<uint32, 1> tex_m_ntt;
+  texture<uint32, 1> tex_m_crt;
+};
+
+map<long, int> refs;
+
+GPUData data[10];
+
+GPUData gpuData(DeviceManager* dm) {
+  if(refs.find((long)dm) == refs.end()) {
+      int empty = 0;
+      for (int i=0; i < 10; i++) {
+        if (data[i].used <= 0) {
+          empty = i;
+          break;
+        }
+      }
+      data[empty].used = true;
+      refs[(long)dm] = empty;
+      return data[empty];
+  } else {
+    return data[refs[(long)dm]];
+  }
+}
 
 ///////////////////////////////////////////////////////////
 // ntt twiddle factors in device global memory
@@ -77,11 +128,13 @@ void preload_ntt(DeviceManager* dm, int len) {
 
     dm->onAllDevices([=](int dev) {
       CSC(cudaSetDevice(dev));
-      CSC(cudaMalloc(&d_roots_16k[dev], len*sizeof(uint64)));
+      CSC(cudaMalloc(&(d_roots_16k[dev]), len*sizeof(uint64)));
+      /*
       CSC(cudaMemcpy(d_roots_16k[dev], h_roots, len*sizeof(uint64),
           cudaMemcpyHostToDevice));
       CSC(cudaBindTexture(NULL, tex_roots_16k, d_roots_16k[dev],
           len*sizeof(uint64)));
+      */
     });
   }
   else if (len == 32768) {
